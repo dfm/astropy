@@ -78,6 +78,7 @@ listed below.
    robust.rst
    circ.rst
    lombscargle.rst
+   transit_periodogram.rst
    ripley.rst
    ../visualization/histogram.rst
 
