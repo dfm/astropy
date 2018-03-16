@@ -4,9 +4,9 @@ __all__ = ["TransitPeriodogram", "TransitPeriodogramResults"]
 
 import numpy as np
 
-from ...tests.helper import assert_quantity_allclose
-from ... import units
-from ..lombscargle.core import has_units, strip_units
+from astropy.tests.helper import assert_quantity_allclose
+from astropy import units
+from astropy.stats.lombscargle.core import has_units, strip_units
 
 from . import methods
 
@@ -27,8 +27,7 @@ class TransitPeriodogram(object):
     This method is a commonly used tool for discovering transiting exoplanets
     or eclipsing binaries in photometric time series datasets. This
     implementation is based on the "box least squares (BLS)" method described
-    in [1]_ with added support for observational uncertainties,
-    parallelization, and a likelihood model.
+    in [1]_ and [2]_.
 
     Parameters
     ----------
@@ -81,6 +80,8 @@ class TransitPeriodogram(object):
     ----------
     .. [1] Kovacs, Zucker, & Mazeh (2002), A&A, 391, 369
         (arXiv:astro-ph/0206099)
+    .. [2] Hartman & Bakos (2016), Astronomy & Computing, 17, 1
+        (arXiv:1605.06811)
 
     """
 
@@ -354,6 +355,149 @@ class TransitPeriodogram(object):
         y_model[m_model] = y_in
 
         return y_model * self._y_unit()
+
+    def compute_stats(self, period, duration, transit_time):
+        """Compute descriptive statistics for a given transit model
+
+        These statistics are commonly used for vetting of transit candidates.
+
+        Parameters
+        ----------
+        period : float or Quantity
+            The period of the transits.
+        duration : float or Quantity
+            The duration of the transit.
+        transit_time : float or Quantity
+            The mid-transit time of a reference transit.
+
+        Returns
+        -------
+        stats : dict
+            A dictionary containing several descriptive statistics:
+            - ``depth``: The depth and uncertainty (as a tuple with two
+                values) on the depth for the fiducial model.
+            - ``depth_odd``: The depth and uncertainty on the depth for a
+                model where the period is twice the fiducial period.
+            - ``depth_even``: The depth and uncertainty on the depth for a
+                model where the period is twice the fiducial period and the
+                phase is offset by one orbital period.
+            - ``harmonic_delta_log_likelihood``: The difference in log
+                likelihood between a sinusoidal model and the transit model.
+                If ``harmonic_delta_log_likelihood`` is greater than zero, the
+                sinusoidal model is preferred.
+            - ``transit_times``: The mid-transit time for each transit in the
+                baseline.
+            - ``per_transit_count``: An array with a count of the number of
+                data points in each unique transit included in the baseline.
+            - ``per_transit_log_like``: An array with the value of the log
+                likelihood for each unique transit included in the baseline.
+            - ``rms_in_transit``: The root mean squared scatter of the data
+                points in transit.
+            - ``rms_out_of_transit``: The root mean squared scatter of the
+                data points out of transit.
+
+        """
+        period, duration = self._validate_period_and_duration(period, duration)
+        transit_time = validate_unit_consistency(self.t, transit_time)
+
+        period = float(strip_units(period))
+        duration = float(strip_units(duration))
+        transit_time = float(strip_units(transit_time))
+
+        t = np.ascontiguousarray(strip_units(self.t), dtype=np.float64)
+        y = np.ascontiguousarray(strip_units(self.y), dtype=np.float64)
+        if self.dy is None:
+            ivar = np.ones_like(y)
+        else:
+            ivar = 1.0 / np.ascontiguousarray(strip_units(self.dy),
+                                              dtype=np.float64)**2
+
+        # This a helper function that will compute the depth for several
+        # different hypothesized transit models with different parameters
+        def _compute_depth(m, y_out=None, var_out=None):
+            if np.any(m) and (var_out is None or np.isfinite(var_out)):
+                var_m = 1.0 / np.sum(ivar[m])
+                y_m = np.sum(y[m] * ivar[m]) * var_m
+                if y_out is None:
+                    return y_m, var_m
+                return y_out - y_m, np.sqrt(var_m + var_out)
+            return 0.0, np.inf
+
+        # Compute the depth of the fiducial model and the two models at twice
+        # the period
+        hp = 0.5*period
+        m_in = np.abs((t-transit_time+hp) % period - hp) < 0.5*duration
+        m_out = ~m_in
+        m_odd = np.abs((t-transit_time) % (2*period) - period) \
+            < 0.5*duration
+        m_even = np.abs((t-transit_time+period) % (2*period) - period) \
+            < 0.5*duration
+
+        y_out, var_out = _compute_depth(m_out)
+        depth = _compute_depth(m_in, y_out, var_out)
+        depth_odd = _compute_depth(m_odd, y_out, var_out)
+        depth_even = _compute_depth(m_even, y_out, var_out)
+        y_in = y_out - depth[0]
+
+        # Compute the depth of the model at a phase of 0.5*period
+        m_phase = np.abs((t-transit_time) % period - hp) < 0.5*duration
+        depth_phase = _compute_depth(m_phase,
+                                     *_compute_depth((~m_phase) & m_out))
+
+        # Compute the depth of a model with a period of 0.5*period
+        m_half = np.abs((t-transit_time+0.25*period) % (0.5*period)
+                        - 0.25*period) < 0.5*duration
+        depth_half = _compute_depth(m_half, *_compute_depth(~m_half))
+
+        # Compute the number of points in each transit
+        transit_id = np.round((t[m_in]-transit_time) / period).astype(int)
+        transit_times = period * np.arange(transit_id.min(),
+                                           transit_id.max()+1) + transit_time
+        unique_ids, unique_counts = np.unique(transit_id,
+                                              return_counts=True)
+        unique_ids -= np.min(transit_id)
+        transit_id -= np.min(transit_id)
+        counts = np.zeros(np.max(transit_id) + 1, dtype=int)
+        counts[unique_ids] = unique_counts
+
+        # Compute the per-transit log likelihood
+        resid2_in = (y[m_in] - y_in)**2
+        resid2_out = (y[m_out] - y_out)**2
+        ll = -0.5*(resid2_in * ivar[m_in]-np.log(ivar[m_in])+np.log(2*np.pi))
+        lls = np.zeros(len(counts))
+        for i in unique_ids:
+            lls[i] = np.sum(ll[transit_id == i])
+        full_ll = np.sum(ll)
+        full_ll += -0.5*np.sum(resid2_out*ivar[m_out]-np.log(ivar[m_out])
+                               + np.log(2*np.pi))
+        rms_in = np.sqrt(np.sum(resid2_in*ivar[m_in])/np.sum(ivar[m_in]))
+        rms_out = np.sqrt(np.sum(resid2_out*ivar[m_out])/np.sum(ivar[m_out]))
+
+        # Compute the log likelihood of a sine model
+        A = np.vstack((
+            np.sin(2*np.pi*t/period), np.cos(2*np.pi*t/period),
+            np.ones_like(t)
+        )).T
+        w = np.linalg.solve(np.dot(A.T, A * ivar[:, None]),
+                            np.dot(A.T, y * ivar))
+        mod = np.dot(A, w)
+        sin_ll = -0.5*np.sum((y-mod)**2*ivar + np.log(2*np.pi/ivar))
+
+        # Format the results
+        y_unit = self._y_unit()
+        return dict(
+            transit_times=transit_times * self._t_unit(),
+            per_transit_count=counts,
+            per_transit_log_like=lls,
+            rms_out_of_transit=rms_out * y_unit,
+            rms_in_transit=rms_in * y_unit,
+            depth=(depth[0] * y_unit, depth[1] * y_unit),
+            depth_phased=(depth_phase[0] * y_unit, depth_phase[1] * y_unit),
+            depth_half=(depth_half[0] * y_unit, depth_half[1] * y_unit),
+            depth_odd=(depth_odd[0] * y_unit, depth_odd[1] * y_unit),
+            depth_even=(depth_even[0] * y_unit, depth_even[1] * y_unit),
+            harmonic_delta_log_likelihood=sin_ll - full_ll,
+        )
 
     def transit_mask(self, t, period, duration, transit_time):
         """Compute which data points are in transit for a given parameter set

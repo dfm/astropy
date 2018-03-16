@@ -135,7 +135,7 @@ def _transit_periodogram_slow_one(t, y, ivar, duration, oversample,
                 objective = snr
 
             # If this model is better than any before, keep it.
-            if objective > best[0]:
+            if depth > 0 and objective > best[0]:
                 best = (
                     objective,
                     (objective, depth, depth_err, dur, t0, snr, loglike)

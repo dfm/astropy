@@ -114,10 +114,10 @@ def test_results_units(data, method, with_err, t_unit, y_unit, objective):
     periods = np.linspace(params["period"]-1.0, params["period"]+1.0, 3)
 
     if t_unit is not None:
-        t *= t_unit
+        t = t * t_unit
     if y_unit is not None:
-        y *= y_unit
-        dy *= y_unit
+        y = y * y_unit
+        dy = dy * y_unit
     if not with_err:
         dy = None
 
@@ -183,10 +183,10 @@ def test_model(data, with_units):
     model_true = np.dot(A, w)
 
     if with_units:
-        t *= units.day
-        y *= units.mag
-        dy *= units.mag
-        model_true *= units.mag
+        t = t * units.day
+        y = y * units.mag
+        dy = dy * units.mag
+        model_true = model_true * units.mag
 
     # Compute the model using the periodogram
     pgram = TransitPeriodogram(t, y, dy)
