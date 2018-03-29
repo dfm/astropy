@@ -124,9 +124,8 @@ def _transit_periodogram_slow_one(t, y, ivar, duration, oversample,
             snr = depth / depth_err
 
             # Compute the log likelihood of this model.
-            chi2 = np.sum((y_in - y[m_in])**2 * ivar[m_in])
-            chi2 += np.sum((y_out - y[m_out])**2 * ivar[m_out])
-            loglike = -0.5*chi2
+            loglike = -0.5*np.sum((y_in - y[m_in])**2 * ivar[m_in])
+            loglike += 0.5*np.sum((y_out - y[m_in])**2 * ivar[m_in])
 
             # Choose which objective should be used for the optimization.
             if use_likelihood:

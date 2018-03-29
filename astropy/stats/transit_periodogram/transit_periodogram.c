@@ -11,9 +11,6 @@ void compute_objective(
     double y_out,
     double ivar_in,
     double ivar_out,
-    double sum_y2,
-    double sum_y,
-    double sum_ivar,
     int obj_flag,
     double* objective,
     double* log_likelihood,
@@ -22,11 +19,8 @@ void compute_objective(
     double* depth_snr
 ) {
     if (obj_flag) {
-        double arg = y_in - y_out;
-        double chi2 = sum_y2 - 2*y_out*sum_y;
-        chi2 += y_out*y_out * sum_ivar;
-        chi2 -= arg*arg * ivar_in;
-        *log_likelihood = -0.5*chi2;
+        double arg = y_out - y_in;
+        *log_likelihood = 0.5*ivar_in*arg*arg;
         *objective = *log_likelihood;
     } else {
         *depth = y_out - y_in;
@@ -112,12 +106,10 @@ int run_transit_periodogram (
     }
 
     // Pre-accumulate some factors.
-    double sum_y2 = 0.0, sum_y = 0.0, sum_ivar = 0.0;
-    #pragma omp parallel for reduction(+:sum_y2), reduction(+:sum_y), reduction(+:sum_ivar)
+    double sum_y = 0.0, sum_ivar = 0.0;
+    #pragma omp parallel for reduction(+:sum_y), reduction(+:sum_ivar)
     for (int n = 0; n < N; ++n) {
-        double tmp = y[n] * ivar[n];
-        sum_y2 += y[n] * tmp;
-        sum_y += tmp;
+        sum_y += y[n] * ivar[n];
         sum_ivar += ivar[n];
     }
 
@@ -192,7 +184,7 @@ int run_transit_periodogram (
 
                 // Either compute the log likelihood or the signal-to-noise
                 // ratio
-                compute_objective(y_in, y_out, ivar_in, ivar_out, sum_y2, sum_y, sum_ivar, obj_flag,
+                compute_objective(y_in, y_out, ivar_in, ivar_out, obj_flag,
                         &objective, &log_like, &depth, &depth_err, &depth_snr);
 
                 // If this is the best result seen so far, keep it
@@ -200,7 +192,7 @@ int run_transit_periodogram (
                     best_objective[p] = objective;
 
                     // Compute the other parameters
-                    compute_objective(y_in, y_out, ivar_in, ivar_out, sum_y2, sum_y, sum_ivar, (obj_flag == 0),
+                    compute_objective(y_in, y_out, ivar_in, ivar_out, (obj_flag == 0),
                             &objective, &log_like, &depth, &depth_err, &depth_snr);
 
                     best_depth[p]     = depth;

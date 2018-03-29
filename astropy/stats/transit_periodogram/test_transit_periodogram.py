@@ -19,7 +19,7 @@ def data():
     period = 2.0
     transit_time = 0.5
     duration = 0.16
-    depth = 0.1
+    depth = 0.5
     m = np.abs((t-transit_time+0.5*period) % period-0.5*period) < 0.5*duration
     y[m] = 1.0 - depth
     y += dy * rand.randn(len(t))
@@ -213,3 +213,42 @@ def test_shapes(data, shape):
             if k == "objective":
                 continue
             assert v.shape == shape
+
+
+@pytest.mark.parametrize("with_units", [True, False])
+@pytest.mark.parametrize("with_err", [True, False])
+def test_compute_stats(data, with_units, with_err):
+    t, y, dy, params = data
+
+    if with_units:
+        t = t * units.day
+        y = y * units.mag
+        dy = dy * units.mag
+        params["period"] = params["period"] * units.day
+        params["duration"] = params["duration"] * units.day
+        params["transit_time"] = params["transit_time"] * units.day
+        params["depth"] = params["depth"] * units.mag
+    if not with_err:
+        dy = None
+
+    model = TransitPeriodogram(t, y, dy)
+    results = model.power(params["period"], params["duration"])
+    stats = model.compute_stats(params["period"], params["duration"],
+                                params["transit_time"])
+
+    # Test the calculated transit times
+    tt = params["period"] * np.arange(int(t.max() / params["period"]) + 1)
+    tt += params["transit_time"]
+    assert_quantity_allclose(tt, stats["transit_times"])
+
+    # Test the per transit parameters
+    assert np.allclose(stats["per_transit_count"], np.array([9, 7, 7, 7, 8]))
+    assert np.allclose(stats["per_transit_log_like"],
+                       np.array([-8.27063078, -6.43272985, -6.43270439,
+                                 -6.43263894, -7.35185781]))
+
+    print(params["depth"])
+
+    print(stats)
+    print(results)
+    assert 0
