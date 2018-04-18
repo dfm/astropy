@@ -100,7 +100,124 @@ grid in duration and reference time as specified by the ``durations`` and
 ``oversample`` parameters for the
 :func:`~astropy.stats.TransitPeriodogram.power` method.
 Behind the scenes, this implementation minimizes the number of required
-calculations by pre-binning the observations onto a fine grid following [2]_.
+calculations by pre-binning the observations onto a fine grid following [1]_
+and [2]_.
+
+
+Basic Usage
+===========
+
+The transit periodogram takes as input time series observations where the
+timestamps ``t`` and the observations ``y`` (usually brightness) are stored as
+NumPy arrays or :class:`~astropy.Quantity`.
+If known, error bars ``dy`` can also optionally be provided.
+For example, to evaluate the periodogram for a simulated data set, can be
+computed as follows:
+
+>>> import numpy as np
+>>> import astropy.units as u
+>>> from astropy.stats import TransitPeriodogram
+>>> np.random.seed(42)
+>>> t = np.random.uniform(0, 20, 2000)
+>>> y = np.ones_like(t) - 0.1*((t%3)<0.2) + 0.01*np.random.randn(len(t))
+>>> model = TransitPeriodogram(t * u.day, y, dy=0.01)
+>>> periodogram = model.autopower(0.2)
+
+The output of the :func:`~astropy.stats.TransitPeriodogram.autopower` method
+is a :class:`~astropy.stats.TransitPeriodogramResults` object with several
+useful attributes, the most useful of which are generally the ``period`` and
+``power`` attributes.
+This result can be plotted using matplotlib:
+
+>>> import matplotlib.pyplot as plt                  # doctest: +SKIP
+>>> plt.plot(periodogram.period, periodogram.power)  # doctest: +SKIP
+
+.. plot::
+
+    import numpy as np
+    import astropy.units as u
+    import matplotlib.pyplot as plt
+    from astropy.stats import TransitPeriodogram
+
+    np.random.seed(42)
+    t = np.random.uniform(0, 20, 2000)
+    y = np.ones_like(t) - 0.1*((t%3)<0.2) + 0.01*np.random.randn(len(t))
+    model = TransitPeriodogram(t * u.day, y, dy=0.01)
+    periodogram = model.autopower(0.2)
+
+    plt.figure(figsize=(8, 4))
+    plt.plot(periodogram.period, periodogram.power, "k")
+    plt.xlabel("period [day]")
+    plt.ylabel("power")
+
+In this figure, you can see the peak at the correct period of 3 days.
+
+
+Period Grid
+===========
+
+The transit periodogram is always computed on a grid of periods and the
+results can be sensitive to the sampling.
+As discussed in [1]_, the performance of the transit periodogram method is
+more sensitive to the period grid than the
+:class:`~astropy.stats.LombScargle` periodogram.
+This implementation of the transit periodogram includes a conservative
+heuristic for estimating the required period grid that is used by the
+:func:`~astropy.stats.TransitPeriodogram.autoperiod` and
+:func:`~astropy.stats.TransitPeriodogram.autopower` methods and the details of
+this method are given in the API documentation for
+:func:`~astropy.stats.TransitPeriodogram.autoperiod`.
+It is also possible to provide a specific period grid as follows:
+
+>>> model = TransitPeriodogram(t * u.day, y, dy=0.01)
+>>> periods = np.linspace(2.5, 3.5, 1000) * u.day
+>>> periodogram = model.power(periods, 0.2)
+
+.. plot::
+
+    import numpy as np
+    import astropy.units as u
+    import matplotlib.pyplot as plt
+    from astropy.stats import TransitPeriodogram
+
+    np.random.seed(42)
+    t = np.random.uniform(0, 20, 2000)
+    y = np.ones_like(t) - 0.1*((t%3)<0.2) + 0.01*np.random.randn(len(t))
+    model = TransitPeriodogram(t * u.day, y, dy=0.01)
+    periods = np.linspace(2.5, 3.5, 1000) * u.day
+    periodogram = model.power(periods, 0.2)
+
+    plt.figure(figsize=(8, 4))
+    plt.plot(periodogram.period, periodogram.power, "k")
+    plt.xlabel("period [day]")
+    plt.ylabel("power")
+
+However, if the period grid is too coarse, the correct period can easily be
+missed.
+
+>>> model = TransitPeriodogram(t * u.day, y, dy=0.01)
+>>> periods = np.linspace(0.5, 10.5, 15) * u.day
+>>> periodogram = model.power(periods, 0.2)
+
+.. plot::
+
+    import numpy as np
+    import astropy.units as u
+    import matplotlib.pyplot as plt
+    from astropy.stats import TransitPeriodogram
+
+    np.random.seed(42)
+    t = np.random.uniform(0, 20, 2000)
+    y = np.ones_like(t) - 0.1*((t%3)<0.2) + 0.01*np.random.randn(len(t))
+    model = TransitPeriodogram(t * u.day, y, dy=0.01)
+    periods = np.linspace(0.5, 10.5, 15) * u.day
+    periodogram = model.power(periods, 0.2)
+
+    plt.figure(figsize=(8, 4))
+    plt.plot(periodogram.period, periodogram.power, "k")
+    plt.xlabel("period [day]")
+    plt.ylabel("power")
+
 
 Literature References
 =====================
