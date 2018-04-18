@@ -1,3 +1,5 @@
+.. module:: astropy.stats
+
 .. _stats-transit_periodogram:
 
 ********************
@@ -7,7 +9,7 @@ Transit Periodograms
 The "transit periodogram" (also known the "box least squares spectrum"
 following [1]_) is a statistical tool used for detecting transiting exoplanets
 and eclipsing binaries in time series photometric data.
-The main interface is through the :class:`~astropy.stats.TransitPeriodogram`
+The main interface to this implementation is the :class:`TransitPeriodogram`
 class.
 
 
@@ -98,7 +100,7 @@ box least squares spectrum from [1]_.
 In practice, this is achieved by finding the maximum likelihood model over a
 grid in duration and reference time as specified by the ``durations`` and
 ``oversample`` parameters for the
-:func:`~astropy.stats.TransitPeriodogram.power` method.
+:func:`TransitPeriodogram.power` method.
 Behind the scenes, this implementation minimizes the number of required
 calculations by pre-binning the observations onto a fine grid following [1]_
 and [2]_.
@@ -123,8 +125,8 @@ computed as follows:
 >>> model = TransitPeriodogram(t * u.day, y, dy=0.01)
 >>> periodogram = model.autopower(0.2)
 
-The output of the :func:`~astropy.stats.TransitPeriodogram.autopower` method
-is a :class:`~astropy.stats.TransitPeriodogramResults` object with several
+The output of the :func:`TransitPeriodogram.autopower` method
+is a :class:`TransitPeriodogramResults` object with several
 useful attributes, the most useful of which are generally the ``period`` and
 ``power`` attributes.
 This result can be plotted using matplotlib:
@@ -153,6 +155,42 @@ This result can be plotted using matplotlib:
 In this figure, you can see the peak at the correct period of 3 days.
 
 
+Objectives
+==========
+
+By default, the :func:`TransitPeriodogram.power` method computes the log
+likelihood of the model fit and maximizes over reference time and duration.
+It is also possible to use the signal-to-noise ratio with which the transit
+depth is measured as an objective function.
+To do this, call :func:`TransitPeriodogram.power` or
+:func:`TransitPeriodogram.autopower` with ``objective='snr'`` as follows:
+
+>>> model = TransitPeriodogram(t * u.day, y, dy=0.01)
+>>> periodogram = model.autopower(0.2, objective="snr")
+
+.. plot::
+
+    import numpy as np
+    import astropy.units as u
+    import matplotlib.pyplot as plt
+    from astropy.stats import TransitPeriodogram
+
+    np.random.seed(42)
+    t = np.random.uniform(0, 20, 2000)
+    y = np.ones_like(t) - 0.1*((t%3)<0.2) + 0.01*np.random.randn(len(t))
+    model = TransitPeriodogram(t * u.day, y, dy=0.01)
+    periodogram = model.autopower(0.2, objective="snr")
+
+    plt.figure(figsize=(8, 4))
+    plt.plot(periodogram.period, periodogram.power, "k")
+    plt.xlabel("period [day]")
+    plt.ylabel("depth S/N")
+
+This objective will generally produce a periodogram that is qualitatively
+similar to the log likelihood spectrum, but it has been used to improve the
+reliability of transit search in the presence of correlated noise.
+
+
 Period Grid
 ===========
 
@@ -160,13 +198,13 @@ The transit periodogram is always computed on a grid of periods and the
 results can be sensitive to the sampling.
 As discussed in [1]_, the performance of the transit periodogram method is
 more sensitive to the period grid than the
-:class:`~astropy.stats.LombScargle` periodogram.
+:class:`LombScargle` periodogram.
 This implementation of the transit periodogram includes a conservative
 heuristic for estimating the required period grid that is used by the
-:func:`~astropy.stats.TransitPeriodogram.autoperiod` and
-:func:`~astropy.stats.TransitPeriodogram.autopower` methods and the details of
+:func:`TransitPeriodogram.autoperiod` and
+:func:`TransitPeriodogram.autopower` methods and the details of
 this method are given in the API documentation for
-:func:`~astropy.stats.TransitPeriodogram.autoperiod`.
+:func:`TransitPeriodogram.autoperiod`.
 It is also possible to provide a specific period grid as follows:
 
 >>> model = TransitPeriodogram(t * u.day, y, dy=0.01)
@@ -217,6 +255,28 @@ missed.
     plt.plot(periodogram.period, periodogram.power, "k")
     plt.xlabel("period [day]")
     plt.ylabel("power")
+
+
+Peak Statistics
+===============
+
+To help in the transit vetting process and to debug problems with candidate
+peaks, the :func:`TransitPeriodogram.compute_stats` method can be used to
+calculate several statistics of a candidate transit.
+Many of these statistics are based on the VARTOOLS package described in [2]_.
+This will often be used as follows to compute stats for the maximum point in
+the periodogram:
+
+>>> model = TransitPeriodogram(t * u.day, y, dy=0.01)
+>>> periodogram = model.autopower(0.2)
+>>> max_power = np.argmax(periodogram.power)
+>>> stats = model.compute_stats(periodogram.period[max_power],
+...                             periodogram.duration[max_power],
+...                             periodogram.transit_time[max_power])
+
+This calculates a dictionary with statistics about this candidate.
+Each entry in this dictionary is described in the documentation for
+:func:`TransitPeriodogram.compute_stats`.
 
 
 Literature References
