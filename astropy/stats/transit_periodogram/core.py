@@ -374,6 +374,7 @@ class TransitPeriodogram(object):
         -------
         stats : dict
             A dictionary containing several descriptive statistics:
+
             - ``depth``: The depth and uncertainty (as a tuple with two
                 values) on the depth for the fiducial model.
             - ``depth_odd``: The depth and uncertainty on the depth for a
