@@ -71,7 +71,39 @@ and Gaussian, the maximum likelihood in-transit flux can be computed as
 where :math:`y_n` are the brightness measurements, :math:`\sigma_n` are the
 associated uncertainties, and both sums are computed over the in-transit data
 points.
+Similarly, the maximum likelihood out-of-transit flux is
+
+.. math::
+
+    y_\mathrm{out} = \frac{\sum_\mathrm{out} y_n/{\sigma_n}^2}{\sum_\mathrm{out} 1/{\sigma_n}^2}
+
+where these sums are over the out-of-transit observations.
+Using these results, the log likelihood of a transit model (maximized over
+depth) at a given period :math:`P`, duration :math:`\tau`, and reference time
+:math:`t_0` is
+
+.. math::
+
+    \log \mathcal{L}(P,\,\tau,\,t_0) =
+    -\frac{1}{2}\,\sum_\mathrm{in}\frac{(y_n-y_\mathrm{in})^2}{{\sigma_n}^2}
+    -\frac{1}{2}\,\sum_\mathrm{out}\frac{(y_n-y_\mathrm{out})^2}{{\sigma_n}^2}
+    + \mathrm{constant}
+
+This equation might be familiar because it is proportional to the "chi
+squared" :math:`\chi^2` for this model and this is a direct consequence of our
+assumption of Gaussian uncertainties.
+This :math:`\chi^2` is called the "signal residue" by [1]_, so maximizing the
+log likelihood over duration and reference time is equivalent to computing the
+box least squares spectrum from [1]_.
+In practice, this is achieved by finding the maximum likelihood model over a
+grid in duration and reference time as specified by the ``durations`` and
+``oversample`` parameters for the
+:func:`~astropy.stats.TransitPeriodogram.power` method.
+Behind the scenes, this implementation minimizes the number of required
+calculations by pre-binning the observations onto a fine grid following [2]_.
 
 Literature References
 =====================
+
 .. [1] Kovacs, Zucker, & Mazeh (2002), A&A, 391, 369 (arXiv:astro-ph/0206099)
+.. [2] Hartman & Bakos (2016), Astronomy & Computing, 17, 1 (arXiv:1605.06811)
