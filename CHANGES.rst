@@ -65,6 +65,9 @@ astropy.samp
 astropy.stats
 ^^^^^^^^^^^^^
 
+- Added ``TransitPeriodogram`` class to compute transit periodograms for the
+  detection of transiting exoplanets. [#7391]
+
 astropy.table
 ^^^^^^^^^^^^^
 
