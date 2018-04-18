@@ -19,7 +19,7 @@ def data():
     period = 2.0
     transit_time = 0.5
     duration = 0.16
-    depth = 0.5
+    depth = 0.2
     m = np.abs((t-transit_time+0.5*period) % period-0.5*period) < 0.5*duration
     y[m] = 1.0 - depth
     y += dy * rand.randn(len(t))
@@ -192,6 +192,12 @@ def test_model(data, with_units):
     pgram = TransitPeriodogram(t, y, dy)
     model = pgram.model(t, p, params["duration"], params["transit_time"])
 
+    # Make sure that the transit mask is consistent with the model
+    transit_mask = pgram.transit_mask(t, p, params["duration"],
+                                      params["transit_time"])
+    transit_mask0 = (model - model.max()) < 0.0
+    assert_allclose(transit_mask, transit_mask0)
+
     assert_quantity_allclose(model, model_true)
 
 
@@ -220,7 +226,9 @@ def test_shapes(data, shape):
 def test_compute_stats(data, with_units, with_err):
     t, y, dy, params = data
 
+    y_unit = 1
     if with_units:
+        y_unit = units.mag
         t = t * units.day
         y = y * units.mag
         dy = dy * units.mag
@@ -232,7 +240,8 @@ def test_compute_stats(data, with_units, with_err):
         dy = None
 
     model = TransitPeriodogram(t, y, dy)
-    results = model.power(params["period"], params["duration"])
+    results = model.power(params["period"], params["duration"],
+                          oversample=1000)
     stats = model.compute_stats(params["period"], params["duration"],
                                 params["transit_time"])
 
@@ -241,14 +250,32 @@ def test_compute_stats(data, with_units, with_err):
     tt += params["transit_time"]
     assert_quantity_allclose(tt, stats["transit_times"])
 
-    # Test the per transit parameters
-    assert np.allclose(stats["per_transit_count"], np.array([9, 7, 7, 7, 8]))
-    assert np.allclose(stats["per_transit_log_like"],
-                       np.array([-8.27063078, -6.43272985, -6.43270439,
-                                 -6.43263894, -7.35185781]))
+    # Test that the other parameters are consistent with the periodogram
+    assert_allclose(stats["per_transit_count"], np.array([9, 7, 7, 7, 8]))
+    assert_quantity_allclose(np.sum(stats["per_transit_log_likelihood"]),
+                             results["log_likelihood"])
+    assert_quantity_allclose(stats["depth"][0], results["depth"])
 
-    print(params["depth"])
+    # Check the half period result
+    results_half = model.power(0.5*params["period"], params["duration"],
+                               oversample=1000)
+    assert_quantity_allclose(stats["depth_half"][0], results_half["depth"])
 
-    print(stats)
-    print(results)
-    assert 0
+    # Skip the uncertainty tests when the input errors are None
+    if not with_err:
+        assert_quantity_allclose(stats["harmonic_amplitude"],
+                                 0.029945029964964204 * y_unit)
+        assert_quantity_allclose(stats["harmonic_delta_log_likelihood"],
+                                 -0.5875918155223113 * y_unit * y_unit)
+        return
+
+    assert_quantity_allclose(stats["harmonic_amplitude"],
+                             0.033027988742275853 * y_unit)
+    assert_quantity_allclose(stats["harmonic_delta_log_likelihood"],
+                             -12407.505922833765)
+
+    assert_quantity_allclose(stats["depth"][1], results["depth_err"])
+    assert_quantity_allclose(stats["depth_half"][1], results_half["depth_err"])
+    for f, k in zip((1.0, 1.0, 1.0, 0.0),
+                    ("depth", "depth_even", "depth_odd", "depth_phased")):
+        assert np.abs((stats[k][0]-f*params["depth"]) / stats[k][1]) < 1.0

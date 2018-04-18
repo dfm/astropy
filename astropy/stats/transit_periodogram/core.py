@@ -4,9 +4,9 @@ __all__ = ["TransitPeriodogram", "TransitPeriodogramResults"]
 
 import numpy as np
 
-from astropy.tests.helper import assert_quantity_allclose
-from astropy import units
-from astropy.stats.lombscargle.core import has_units, strip_units
+from ...tests.helper import assert_quantity_allclose
+from ... import units
+from ..lombscargle.core import has_units, strip_units
 
 from . import methods
 
@@ -381,6 +381,8 @@ class TransitPeriodogram(object):
             - ``depth_even``: The depth and uncertainty on the depth for a
                 model where the period is twice the fiducial period and the
                 phase is offset by one orbital period.
+            - ``harmonic_amplitude``: The amplitude of the best fit sinusoidal
+                model.
             - ``harmonic_delta_log_likelihood``: The difference in log
                 likelihood between a sinusoidal model and the transit model.
                 If ``harmonic_delta_log_likelihood`` is greater than zero, the
@@ -389,12 +391,9 @@ class TransitPeriodogram(object):
                 baseline.
             - ``per_transit_count``: An array with a count of the number of
                 data points in each unique transit included in the baseline.
-            - ``per_transit_log_like``: An array with the value of the log
-                likelihood for each unique transit included in the baseline.
-            - ``rms_in_transit``: The root mean squared scatter of the data
-                points in transit.
-            - ``rms_out_of_transit``: The root mean squared scatter of the
-                data points out of transit.
+            - ``per_transit_log_likelihood``: An array with the value of the
+                log likelihood for each unique transit included in the
+                baseline.
 
         """
         period, duration = self._validate_period_and_duration(period, duration)
@@ -461,17 +460,12 @@ class TransitPeriodogram(object):
         counts[unique_ids] = unique_counts
 
         # Compute the per-transit log likelihood
-        resid2_in = (y[m_in] - y_in)**2
-        resid2_out = (y[m_out] - y_out)**2
-        ll = -0.5*(resid2_in * ivar[m_in]-np.log(ivar[m_in])+np.log(2*np.pi))
+        ll = -0.5 * ivar[m_in] * ((y[m_in] - y_in)**2 - (y[m_in] - y_out)**2)
         lls = np.zeros(len(counts))
         for i in unique_ids:
             lls[i] = np.sum(ll[transit_id == i])
-        full_ll = np.sum(ll)
-        full_ll += -0.5*np.sum(resid2_out*ivar[m_out]-np.log(ivar[m_out])
-                               + np.log(2*np.pi))
-        rms_in = np.sqrt(np.sum(resid2_in*ivar[m_in])/np.sum(ivar[m_in]))
-        rms_out = np.sqrt(np.sum(resid2_out*ivar[m_out])/np.sum(ivar[m_out]))
+        full_ll = -0.5*np.sum(ivar[m_in] * (y[m_in] - y_in)**2)
+        full_ll -= 0.5*np.sum(ivar[m_out] * (y[m_out] - y_out)**2)
 
         # Compute the log likelihood of a sine model
         A = np.vstack((
@@ -481,22 +475,24 @@ class TransitPeriodogram(object):
         w = np.linalg.solve(np.dot(A.T, A * ivar[:, None]),
                             np.dot(A.T, y * ivar))
         mod = np.dot(A, w)
-        sin_ll = -0.5*np.sum((y-mod)**2*ivar + np.log(2*np.pi/ivar))
+        sin_ll = -0.5*np.sum((y-mod)**2*ivar)
 
         # Format the results
         y_unit = self._y_unit()
+        ll_unit = 1
+        if self.dy is None:
+            ll_unit = y_unit * y_unit
         return dict(
             transit_times=transit_times * self._t_unit(),
             per_transit_count=counts,
-            per_transit_log_like=lls,
-            rms_out_of_transit=rms_out * y_unit,
-            rms_in_transit=rms_in * y_unit,
+            per_transit_log_likelihood=lls * ll_unit,
             depth=(depth[0] * y_unit, depth[1] * y_unit),
             depth_phased=(depth_phase[0] * y_unit, depth_phase[1] * y_unit),
             depth_half=(depth_half[0] * y_unit, depth_half[1] * y_unit),
             depth_odd=(depth_odd[0] * y_unit, depth_odd[1] * y_unit),
             depth_even=(depth_even[0] * y_unit, depth_even[1] * y_unit),
-            harmonic_delta_log_likelihood=sin_ll - full_ll,
+            harmonic_amplitude=np.sqrt(np.sum(w[:2]**2)) * y_unit,
+            harmonic_delta_log_likelihood=(sin_ll - full_ll) * ll_unit,
         )
 
     def transit_mask(self, t, period, duration, transit_time):
