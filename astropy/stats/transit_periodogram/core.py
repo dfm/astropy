@@ -61,7 +61,7 @@ class TransitPeriodogram(object):
     >>> periods = np.linspace(1.9, 2.1, 5)
     >>> results = model.power(periods, 0.16)
     >>> results.power  # doctest: +FLOAT_CMP
-    array([-0.142265  , -0.12027131, -0.06418401, -0.10649646, -0.13725468])
+    array([0.01479464, 0.03804835, 0.09640946, 0.05199547, 0.01970484])
 
     If the inputs are AstroPy Quantities with units, the units will be
     validated and the outputs will also be Quantities with appropriate units:
