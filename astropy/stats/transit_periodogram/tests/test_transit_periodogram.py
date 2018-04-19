@@ -29,7 +29,7 @@ def data():
 
 def test_32bit_bug():
     rand = np.random.RandomState(42)
-    t = rand.uniform(0, 10, 10)
+    t = rand.uniform(0, 10, 500)
     y = np.ones_like(t)
     y[np.abs((t + 1.0) % 2.0-1) < 0.08] = 1.0 - 0.1
     y += 0.01 * rand.randn(len(t))
