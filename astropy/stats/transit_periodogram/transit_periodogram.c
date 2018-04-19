@@ -1,6 +1,7 @@
 #include <math.h>
 #include <float.h>
 #include <stdlib.h>
+#include <stdio.h>
 
 #if defined(_OPENMP)
 #include <omp.h>
@@ -161,10 +162,13 @@ int run_transit_periodogram (
         // fast, we can compute the cumulative sum and then use differences between
         // points separated by ``duration`` bins. Here we convert the mean arrays
         // to cumulative sums.
+        printf("face1\n");
         for (n = 1; n <= n_bins; ++n) {
             mean_y[n] += mean_y[n-1];
             mean_ivar[n] += mean_ivar[n-1];
+            printf("%e %e\n", mean_y[n], mean_ivar[n]);
         }
+        printf("face2\n\n");
 
         // Then we loop over phases (in steps of n_bin) and durations and find the
         // best fit value. By looping over durations here, we get to reuse a lot of
