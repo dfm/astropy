@@ -35,17 +35,13 @@ def test_32bit_bug():
     y += 0.01 * rand.randn(len(t))
 
     model = TransitPeriodogram(t, y)
-    periods = 2.0
-    # periods = np.linspace(1.9, 2.1, 5)
+    # periods = 2.0
+    periods = np.linspace(1.9, 2.1, 5)
     results = model.power(periods, 0.16)
-    print(t)
-    print(y)
-    print(results)
     assert np.allclose(
         results.power,
         np.array([0.01479464, 0.03804835, 0.09640946, 0.05199547, 0.01970484])
     )
-    assert 0
 
 
 @pytest.mark.parametrize("objective", ["likelihood", "snr"])

@@ -1,7 +1,6 @@
 #include <math.h>
 #include <float.h>
 #include <stdlib.h>
-#include <stdio.h>
 
 #if defined(_OPENMP)
 #include <omp.h>
@@ -132,7 +131,6 @@ int run_transit_periodogram (
         int block = blocksize * ithread;
         double period = periods[p];
         int n_bins = (int)(ceil(period / bin_duration)) + oversample;
-        printf("nbins: %d\n", n_bins);
 
         double* mean_y = mean_y_0 + block;
         double* mean_ivar = mean_ivar_0 + block;
