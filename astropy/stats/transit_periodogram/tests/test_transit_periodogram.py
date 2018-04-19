@@ -37,6 +37,7 @@ def test_32bit_bug():
     model = TransitPeriodogram(t, y)
     periods = np.linspace(1.9, 2.1, 5)
     results = model.power(periods, 0.16)
+    print(results)
     assert np.allclose(
         results.power,
         np.array([0.01479464, 0.03804835, 0.09640946, 0.05199547, 0.01970484])
