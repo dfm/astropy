@@ -38,6 +38,8 @@ def test_32bit_bug():
     periods = np.linspace(1.9, 2.1, 5)
     results = model.power(periods, 0.16)
     print(t)
+    print(y)
+    print(results)
     assert np.allclose(
         results.power,
         np.array([0.01479464, 0.03804835, 0.09640946, 0.05199547, 0.01970484])
