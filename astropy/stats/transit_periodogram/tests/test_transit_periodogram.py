@@ -27,6 +27,22 @@ def data():
                           duration=duration, depth=depth)
 
 
+def test_32bit_bug():
+    rand = np.random.RandomState(42)
+    t = rand.uniform(0, 10, 500)
+    y = np.ones_like(t)
+    y[np.abs((t + 1.0) % 2.0-1) < 0.08] = 1.0 - 0.1
+    y += 0.01 * rand.randn(len(t))
+
+    model = TransitPeriodogram(t, y)
+    periods = np.linspace(1.9, 2.1, 5)
+    results = model.power(periods, 0.16)
+    assert np.allclose(
+        results.power,
+        np.array([0.01479464, 0.03804835, 0.09640946, 0.05199547, 0.01970484])
+    )
+
+
 @pytest.mark.parametrize("objective", ["likelihood", "snr"])
 def test_correct_model(data, objective):
     t, y, dy, params = data
