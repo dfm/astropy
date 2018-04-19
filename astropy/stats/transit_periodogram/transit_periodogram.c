@@ -144,12 +144,15 @@ int run_transit_periodogram (
             mean_y[n] = 0.0;
             mean_ivar[n] = 0.0;
         }
-        printf("face1\n");
         for (n = 0; n < N; ++n) {
             int ind = (int)(fabs(fmod(t[n], period)) / bin_duration) + 1;
-            printf("%d,%e,%d\n", n, t[n], ind);
             mean_y[ind] += y[n] * ivar[n];
             mean_ivar[ind] += ivar[n];
+        }
+
+        printf("face1\n");
+        for (n = 0; n < n_bins+1; ++n) {
+            printf("%d,%e,%e\n", n, mean_y[n], mean_ivar[n]);
         }
         printf("face2\n\n");
 
