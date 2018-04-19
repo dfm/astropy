@@ -144,11 +144,14 @@ int run_transit_periodogram (
             mean_y[n] = 0.0;
             mean_ivar[n] = 0.0;
         }
+        printf("face1\n");
         for (n = 0; n < N; ++n) {
             int ind = (int)(fabs(fmod(t[n], period)) / bin_duration) + 1;
+            printf("%d %e %d\n", n, t[n], ind);
             mean_y[ind] += y[n] * ivar[n];
             mean_ivar[ind] += ivar[n];
         }
+        printf("face2\n\n");
 
         // To simplify calculations below, we wrap the binned values around and pad
         // the end of the array with the first ``oversample`` samples.
@@ -162,13 +165,10 @@ int run_transit_periodogram (
         // fast, we can compute the cumulative sum and then use differences between
         // points separated by ``duration`` bins. Here we convert the mean arrays
         // to cumulative sums.
-        printf("face1\n");
         for (n = 1; n <= n_bins; ++n) {
             mean_y[n] += mean_y[n-1];
             mean_ivar[n] += mean_ivar[n-1];
-            printf("%e %e\n", mean_y[n], mean_ivar[n]);
         }
-        printf("face2\n\n");
 
         // Then we loop over phases (in steps of n_bin) and durations and find the
         // best fit value. By looping over durations here, we get to reuse a lot of

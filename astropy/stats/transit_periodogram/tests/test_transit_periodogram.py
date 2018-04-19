@@ -35,7 +35,8 @@ def test_32bit_bug():
     y += 0.01 * rand.randn(len(t))
 
     model = TransitPeriodogram(t, y)
-    periods = np.linspace(1.9, 2.1, 5)
+    periods = 2.0
+    # periods = np.linspace(1.9, 2.1, 5)
     results = model.power(periods, 0.16)
     print(t)
     print(y)
