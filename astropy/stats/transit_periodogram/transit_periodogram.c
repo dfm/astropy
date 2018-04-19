@@ -79,7 +79,7 @@ int run_transit_periodogram (
 
     // Compute the durations in terms of bin_duration
     double bin_duration = min_duration / ((double)oversample);
-    int max_n_bins = (int)(ceil(max_period / bin_duration)) + oversample;
+    int max_n_bins = (int)(floor(max_period / bin_duration)) + oversample;
     int* durations_index = (int*)malloc(n_durations*sizeof(int));
     if (durations_index == NULL) return -1;
     for (k = 0; k < n_durations; ++k) {
@@ -130,7 +130,7 @@ int run_transit_periodogram (
 #endif
         int block = blocksize * ithread;
         double period = periods[p];
-        int n_bins = (int)(ceil(period / bin_duration)) + oversample;
+        int n_bins = (int)(floor(period / bin_duration)) + oversample;
 
         double* mean_y = mean_y_0 + block;
         double* mean_ivar = mean_ivar_0 + block;
