@@ -131,6 +131,7 @@ int run_transit_periodogram (
         int block = blocksize * ithread;
         double period = periods[p];
         int n_bins = (int)(floor(period / bin_duration)) + oversample;
+        double actual_bin_duration = period / ((float)(n_bins - oversample));
 
         double* mean_y = mean_y_0 + block;
         double* mean_ivar = mean_ivar_0 + block;
@@ -144,7 +145,7 @@ int run_transit_periodogram (
             mean_ivar[n] = 0.0;
         }
         for (n = 0; n < N; ++n) {
-            int ind = (int)(fabs(fmod(t[n], period)) / bin_duration) + 1;
+            int ind = (int)(fabs(fmod(t[n], period)) / actual_bin_duration) + 1;
             mean_y[ind] += y[n] * ivar[n];
             mean_ivar[ind] += ivar[n];
         }
@@ -208,8 +209,8 @@ int run_transit_periodogram (
                     best_depth_err[p] = depth_err;
                     best_depth_snr[p] = depth_snr;
                     best_log_like[p]  = log_like;
-                    best_duration[p]  = durations_index[k] * bin_duration;
-                    best_phase[p]     = fmod(n*bin_duration + 0.5*best_duration[p], period);
+                    best_duration[p]  = durations_index[k] * actual_bin_duration;
+                    best_phase[p]     = fmod(n*actual_bin_duration + 0.5*best_duration[p], period);
                 }
             }
         }
