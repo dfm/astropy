@@ -80,7 +80,7 @@ int run_transit_periodogram (
 
     // Compute the durations in terms of bin_duration
     double bin_duration = min_duration / ((double)oversample);
-    int max_n_bins = (int)(max_period / bin_duration) + oversample;
+    int max_n_bins = (int)(ceil(max_period / bin_duration)) + oversample;
     int* durations_index = (int*)malloc(n_durations*sizeof(int));
     if (durations_index == NULL) return -1;
     for (k = 0; k < n_durations; ++k) {
@@ -131,7 +131,8 @@ int run_transit_periodogram (
 #endif
         int block = blocksize * ithread;
         double period = periods[p];
-        int n_bins = (int)(period / bin_duration) + oversample;
+        int n_bins = (int)(ceil(period / bin_duration)) + oversample;
+        printf("nbins: %d\n", n_bins);
 
         double* mean_y = mean_y_0 + block;
         double* mean_ivar = mean_ivar_0 + block;
@@ -149,12 +150,6 @@ int run_transit_periodogram (
             mean_y[ind] += y[n] * ivar[n];
             mean_ivar[ind] += ivar[n];
         }
-
-        printf("face1\n");
-        for (n = 0; n < n_bins+1; ++n) {
-            printf("%d,%e,%e\n", n, mean_y[n], mean_ivar[n]);
-        }
-        printf("face2\n\n");
 
         // To simplify calculations below, we wrap the binned values around and pad
         // the end of the array with the first ``oversample`` samples.
